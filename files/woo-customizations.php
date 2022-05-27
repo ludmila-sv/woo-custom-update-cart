@@ -9,6 +9,62 @@
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
+/**
+ * Enqueue scripts and styles
+ *
+ * @return void
+ */
+function astrum_enqueue_scripts() {
+	$asset_version = '1.0.0';
+
+	//phpcs:ignore
+	wp_enqueue_style( 'astrum-bs-style', get_template_directory_uri() . '/assets/style/bootstrap.min.css', null, $asset_version );
+	wp_enqueue_style( 'astrum-style', get_template_directory_uri() . '/assets/css/main.css', array( 'astrum-bs-style' ), $asset_version );
+
+	wp_enqueue_style( 'astrum-woocommerce', get_template_directory_uri() . '/assets/style/woocommerce.css', array( 'astrum-bs-style' ), $asset_version );
+
+	wp_enqueue_script(
+		'popper-js',
+		'https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js',
+		array(
+			'jquery',
+		),
+		'2.9.2',
+		true
+	);
+
+	wp_enqueue_script(
+		'bootstrap-js',
+		'https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.min.js',
+		array(
+			'jquery',
+			'popper-js',
+		),
+		'5.0.2',
+		true
+	);
+
+	wp_enqueue_script(
+		'astrum-main-scripts',
+		get_template_directory_uri() . '/assets/js/main/main.js',
+		array( 'jquery' ),
+		$asset_version,
+		true
+	);
+
+	wp_enqueue_script(
+		'astrum-woo-scripts',
+		get_template_directory_uri() . '/assets/js/scripts/woocommerce.js',
+		array( 'jquery' ),
+		$asset_version,
+		true
+	);
+
+	wp_localize_script( 'astrum-woo-scripts', 'cart_ajax', array( 'ajaxurl' => admin_url( 'admin-ajax.php' ) ) );
+
+}
+
+add_action( 'wp_enqueue_scripts', 'astrum_enqueue_scripts' );
 
 /**
  * Custom function that display minicart span with count.
@@ -57,7 +113,7 @@ add_filter( 'woocommerce_add_to_cart_fragments', 'astrum_ajax_refreshed_minicart
  *
  * @package astrum
  */
-function astrum_update_cart() {
+function ainsys_update_cart() {
 	$product_id = isset( $_POST['cart_item_key'] ) ? sanitize_text_field( wp_unslash( $_POST['cart_item_key'] ) ) : null;
 	$quantity   = isset( $_POST['qty'] ) ? wp_unslash( $_POST['qty'] ) : null;
 
@@ -73,13 +129,18 @@ function astrum_update_cart() {
 			$passed_validation = apply_filters( 'woocommerce_add_to_cart_validation', true, $new_product_id, $quantity );
 			$product_status    = get_post_status( $new_product_id );
 
-			if ( $passed_validation && WC()->cart->add_to_cart( $new_product_id, $quantity ) && 'publish' === $product_status ) {
+			$add_to_cart = WC()->cart->add_to_cart( $new_product_id, $quantity ); // returns true/false.
+
+			if ( $passed_validation && $add_to_cart && 'publish' === $product_status ) {
 				do_action( 'woocommerce_ajax_added_to_cart', $new_product_id );
+
 				WC()->cart->calculate_totals();
+				WC_AJAX::get_refreshed_fragments();
+				WC()->cart->maybe_set_cart_cookies();
+			} else {
+				json_encode( wc_print_notices() );
 			}
 		}
-		WC_AJAX::get_refreshed_fragments();
-		WC()->cart->maybe_set_cart_cookies();
 		wp_die();
 	}
 }
