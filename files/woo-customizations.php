@@ -135,10 +135,11 @@ function ainsys_update_cart() {
 				do_action( 'woocommerce_ajax_added_to_cart', $new_product_id );
 
 				WC()->cart->calculate_totals();
-				WC_AJAX::get_refreshed_fragments();
 				WC()->cart->maybe_set_cart_cookies();
+
+				WC_AJAX::get_refreshed_fragments();
 			} else {
-				json_encode( wc_print_notices() );
+				wc_print_notices();
 			}
 		}
 		wp_die();
